@@ -1,12 +1,16 @@
 {
-  "name": "@zeit/best",
+  "name": "@aredridel/best6",
   "version": "0.6.1",
-  "description": "Bare testing framework",
+  "type": "module",
+  "description": "Bare testing framework (ESM)",
   "bin": {
-    "best": "cli.js"
+    "best6": "cli.js"
   },
-  "repository": "https://github.com/zeit/best",
+  "repository": "https://github.com/aredridel/best6",
   "author": "Josh Junon <junon@zeit.co>",
+  "contributors": [
+    "Aria Stewart <aredridel@dinhe.net>"
+  ],
   "license": "MIT",
   "files": [
     "README.md",
@@ -25,14 +29,14 @@
   ],
   "devDependencies": {
     "@zeit/eslint-config-node": "0.2.5",
-    "@zeit/git-hooks": "0.1.4",
-    "eslint": "4.17.0"
+    "eslint": "^6.8.0"
   },
   "eslintConfig": {
     "extends": [
       "@zeit/eslint-config-node"
     ],
     "parserOptions": {
+      "ecmaVersion": 2020,
       "sourceType": "module"
     }
   },

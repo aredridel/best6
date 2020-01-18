@@ -1,12 +1,12 @@
 #!/usr/bin/env node
-const path = require('path');
-const util = require('util');
+import path from 'path';
+import util from 'util';
 
-const arg = require('arg');
-const chalk = require('chalk');
-const diff = require('diff');
-const globby = require('globby');
-const stripAnsi = require('strip-ansi');
+import arg from 'arg';
+import chalk from 'chalk';
+import diff from 'diff';
+import globby from 'globby';
+import stripAnsi from 'strip-ansi';
 
 // https://regex101.com/r/BjSw9u/2
 const MASK_PATTERN = /^(-)?([^/-][^/]*(?:\/[^/]+)*)$/;
@@ -20,13 +20,13 @@ const args = arg({
 	'--verbose': Boolean,
 	'-v': '--verbose',
 
-	'--require': [String],
-	'-r': '--require'
+	'--import': [String],
+	'-i': '--import'
 });
 
 if (args['--help']) {
 	console.error(chalk`
-  {bold.cyanBright best} v${require(require('path').join(__dirname, 'package.json')).version}
+  {bold.cyanBright best}
 
   A dead simple test runner.
 
@@ -65,7 +65,7 @@ if (args['--help']) {
                                     Defaults to {bold ./test/**/*.js} if no include directives
                                     are specified
 
-    -r, --require {underline module-name}       Imports a module or a script prior to running tests
+    -i, --import {underline module-name}       Imports a module or a script prior to running tests
 `);
 
 	process.exit(2);
@@ -75,7 +75,6 @@ function error(msg) {
 	console.error(chalk`{bold.cyanBright best:} {bold.red error:}`, msg);
 }
 
-// NOTE: split out here because we need it in the injected CJS wrapper.
 const warningLabel = chalk`{bold.cyanBright best:} {bold.yellow warning:}`;
 function warning(msg) {
 	console.error(warningLabel, msg);
@@ -108,16 +107,14 @@ if (args._.length > 0) {
 	}
 }
 
-function requireEphemeral(filepath) {
-	const resolved = require.resolve(filepath);
+async function requireEphemeral(filepath) {
 	global.__isBestLoadingTestModule = true;
-	const module = require(resolved);
+	const module = await import(filepath);
 	delete global.__isBestLoadingTestModule;
-	delete require.cache[resolved];
 	return module;
 }
 
-function stringifyReplacer(k, v) {
+function stringifyReplacer(_, v) {
 	switch (true) {
 	case v instanceof RegExp: return v.toString();
 	case v instanceof Error: return v.stack;
@@ -250,103 +247,17 @@ async function runTest(name, fn) {
 	return !Boolean(errResult);
 }
 
-function injectMapExports() {
-	/*
-		This function injects a wrapper into the CommonJS loader
-		that is built into Node.js that ultimately forms the basis
-		for the module import system.
-
-		We immediately overwrite the module.exports object with a
-		proxy to a map that allows us to iterate keys in the order
-		in which they were defined. Even though *most* implementations
-		of Node+V8 should store keys in order anyway, it's not guaranteed
-		by the Ecmascript specification and thus we use the injection
-		technique to force this to be the case (since Map properties are
-		specified to be stored in the order in which they were defined).
-	*/
-
-	const module = require('module');
-	const checkExistingCJS = '(function (exports, require, module, __filename, __dirname) { ';
-
-	if (module.wrapper[0] !== checkExistingCJS) {
-		warning('CJS header differs from default; cowardly refusing to inject Map exports!');
-		warning('This means you\'re using a really old version of Node, or something has');
-		warning('modified the built-in CommonJS loader. This means Best can no longer guarantee');
-		warning('your tests will run in the order they are defined in code.');
-		warning('');
-		warning('Your tests might run out of order, which may give you false positives or');
-		warning('false negatives.');
-		warning('');
-		warning('');
-		warning('Current CJS header:');
-		warning('');
-		warning(module.wrapper[0]);
-		warning('');
-		warning('Expected CJS header:');
-		warning('');
-		warning(checkExistingCJS);
-		return;
-	}
-
-	// NOTE: While we define this wrapper with multiple lines here,
-	//       note the call to .replace() that collapses it to a single
-	//       line. Make sure any modifications are safe for this, as it's
-	//       required to generate correct line numbers in stack traces.
-	module.wrapper[0] += `{
-		const isTestModule = global.__isBestLoadingTestModule;
-		delete global.__isBestLoadingTestModule;
-		if (isTestModule) {
-			const warningLabel = ${JSON.stringify(warningLabel)};
-			const showWarningTrace = () => (new Error()).stack
-				.toString()
-				.split(/\\n/g)
-				.slice(1)
-				.forEach(line => console.warn(warningLabel, line));
-
-			exports = new Proxy(new Map(), {
-				getPrototypeOf() { return Object.prototype; },
-				setPrototypeOf() {
-					console.warn(warningLabel, 'Attempting to set the prototype of the Best exports object; this is not allowed');
-					console.warn(warningLabel, 'If you are ABSOLUTELY SURE you know what you are doing, \`delete module.exports\` first.');
-					showWarningTrace();
-				},
-				has(target, k) { return target.has(k); },
-				get(target, k) { return target.get(k); },
-				set(target, k, v) { target.set(k, v); },
-				deleteProperty(target, k) { return target.delete(k); },
-				ownKeys(target) { return [...target.keys()]; }
-			});
-
-			delete module.exports;
-			let moduleExports = exports;
-			Object.defineProperty(module, 'exports', {
-				get() { return moduleExports; },
-				set(v) {
-					moduleExports = v;
-					console.warn(warningLabel, 'Overwriting \`module.exports\` in a Best test suite means Best cannot guarantee test execution order.');
-					console.warn(warningLabel, 'Consider using \`exports.testName = ...\` or \`exports[\\'testName\\'] = ...\` instead.');
-					console.warn(warningLabel);
-					console.warn(warningLabel, 'If you are ABSOLUTELY SURE you know what you are doing, \`delete module.exports\` first.');
-					showWarningTrace();
-				},
-				enumerable: true,
-				configurable: true /* Allow users to suppress the warning by deleting module.exports first. */
-			});
-		}
-	}`.replace(/(^|\r?\n)\s+/g, '');
-}
-
 async function main() {
 	// Perform requirements
-	for (const requirement of (args['--require'] || [])) {
+	for (const requirement of (args['--import'] || [])) {
 		if (args['--verbose']) {
 			console.error(chalk`importing {bold ${requirement}}`);
 		}
-		require(requirement);
+		await import(requirement);
 	}
 
 	// Get file listing
-	const allowedExtensions = Object.getOwnPropertyNames(require.extensions);
+	const allowedExtensions = ['.mjs', '.cjs', '.node', '.js'];
 
 	const filePaths = (((args['--include'] || []).length > 0) ? args['--include'] : ['test']);
 	const files = (await globby(filePaths, {
@@ -367,12 +278,10 @@ async function main() {
 		return;
 	}
 
-	injectMapExports();
-
 	// Build up test suite
 	const suite = [];
 	for (const filepath of files) {
-		const module = requireEphemeral(path.resolve(filepath));
+		const module = await requireEphemeral(path.resolve(filepath));
 		const moduleKeys = Object.getOwnPropertyNames(module);
 		let validTests = moduleKeys.length;
 		const tests = moduleKeys
