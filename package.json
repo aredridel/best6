@@ -1,6 +1,6 @@
 {
   "name": "@aredridel/best6",
-  "version": "0.7.0",
+  "version": "0.7.1",
   "type": "module",
   "description": "Bare testing framework (ESM)",
   "bin": {
