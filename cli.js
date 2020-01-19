@@ -107,13 +107,6 @@ if (args._.length > 0) {
 	}
 }
 
-async function requireEphemeral(filepath) {
-	global.__isBestLoadingTestModule = true;
-	const module = await import(filepath);
-	delete global.__isBestLoadingTestModule;
-	return module;
-}
-
 function stringifyReplacer(_, v) {
 	switch (true) {
 	case v instanceof RegExp: return v.toString();
@@ -281,7 +274,7 @@ async function main() {
 	// Build up test suite
 	const suite = [];
 	for (const filepath of files) {
-		const module = await requireEphemeral(path.resolve(filepath));
+		const module = await import(path.resolve(filepath));
 		const moduleKeys = Object.getOwnPropertyNames(module);
 		let validTests = moduleKeys.length;
 		const tests = moduleKeys
