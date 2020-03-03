@@ -1,23 +1,15 @@
-# Best
+# Best6
 
-**Best** is a **b**are t**est** runner. It looks for test sources, finds exported functions,
-and runs them - without requiring any imports or exposing any globals.
+**Best6** is a **b**are t**est** runner for ES6 modules. It looks for test
+sources, finds exported functions, and runs them - without requiring any
+imports or exposing any globals.
 
 All functions are awaited upon, but run in series.
-
-## Installation
-
-Best can be installed with either yarn or npm.
-
-```console
-$ yarn add --dev @zeit/best
-$ npm install --save-dev @zeit/best
-```
 
 ## Usage
 
 ```
-  best
+  best6
 
   A dead simple test runner.
 
@@ -27,8 +19,8 @@ $ npm install --save-dev @zeit/best
 
   USAGE
 
-    best --help
-    best [-I /dir/or/file [-I ...]] [-T] [test_name...]
+    best6 --help
+    best6 [-I /dir/or/file [-I ...]] [-T] [test_name...]
 
     test_names's correspond to the name of the exported functions within test sources,
     and are prefixed with the path of the source file (sans extension) in which it was defined.
@@ -72,4 +64,5 @@ $ best -r esm -r ts-node
 > **NOTE:** `esm` must come before `ts-node`!
 
 ## License
-Best is copyright &copy; 2018-2019 by ZEIT, Inc. and released under the [MIT License](LICENSE).
+Best6 is copyright &copy; 2018-2019 by ZEIT, Inc. and Aria Stewart released
+under the [MIT License](LICENSE).
